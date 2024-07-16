@@ -1,7 +1,7 @@
 #!/bin/bash
 
-# Set the entrypoint of your module
-SCRIPT='entrypoint_method.py'
+# Source the configuration file
+source config.cfg
 
 
 # Check if all the arguments are provided
