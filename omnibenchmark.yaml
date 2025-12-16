@@ -1,0 +1,2 @@
+entrypoints:
+  default: entrypoint_method.py
