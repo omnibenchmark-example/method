@@ -1,60 +1,45 @@
 import argparse
 import os
 
+
 def concatenate_input_content(input_files):
-    concatenated_content = ""  # Initialize an empty string to hold the concatenated content
-    
-    # Iterate over each input file
+    content = ""
     for input_file in input_files:
-        # Open each input file in read mode and read its content
         with open(input_file, 'r') as file:
-            # Read the content of the input file and append it to the concatenated_content string
-            concatenated_content += file.read()
-            # Optionally, you can add a newline between the content of each file
-            concatenated_content += '\n'
-
-    return concatenated_content
-
-
-def run_method(output_dir, name, input_files, parameters):
-    # Create the output directory if it doesn't exist
-    os.makedirs(output_dir, exist_ok=True)
-
-    content = concatenate_input_content(input_files)
-
-    method_mapping_file = os.path.join(output_dir, f'{name}.model.out.gz')
-    content += f"\n3. Running method using parameters '{parameters}' into {method_mapping_file}"
-
-    with open(method_mapping_file, 'w') as file:
-        file.write(content)
+            content += file.read() + '\n'
+    return content
 
 
 def main():
-    # Create argument parser
     parser = argparse.ArgumentParser(description='Run method on files.')
-
-    # Add arguments
     parser.add_argument('--output_dir', type=str, help='output directory where method will store results.')
-    parser.add_argument('--name', type=str, help='name of the dataset')
+    parser.add_argument('--name', type=str, help='name of the module')
+    # api >= 0.8.0: the exact path to write, as `--output methods.mapping=PATH`.
+    parser.add_argument('--output', action='append', default=[], help='id=PATH of an output to write')
     parser.add_argument('--process.filtered', type=str, help='optional input file #1.', required=False)
     parser.add_argument('--data.counts', type=str, help='optional input file #1.', required=False)
     parser.add_argument('--data.meta', type=str, help='input file #2.')
-    parser.add_argument('--data.data_specific_params', type=str, help='input file #3.')
+    parser.add_argument('--data.data_specific_params', type=str, help='input file #3.', required=False)
 
-    # Parse arguments
-    args, extra_arguments = parser.parse_known_args()
+    # Anything else on the command line is a method parameter.
+    args, parameters = parser.parse_known_args()
 
-    process_filtered_input = getattr(args, 'process.filtered')
-    data_counts_input = getattr(args, 'data.counts')
-    data_meta_input = getattr(args, 'data.meta')
-    data_params_input = getattr(args, 'data.data_specific_params')
+    counts = getattr(args, 'process.filtered') or getattr(args, 'data.counts')
+    assert counts is not None, "one of --process.filtered or --data.counts is required"
+    inputs = [counts, getattr(args, 'data.meta'), getattr(args, 'data.data_specific_params')]
+    input_files = [f for f in inputs if f]
 
-    assert process_filtered_input is not None or data_counts_input is not None, "At least one of the values must not be None"
-    data_counts_input = process_filtered_input if process_filtered_input else data_counts_input
-    
-    input_files = [data_counts_input, data_meta_input, data_params_input]
+    outputs = dict(o.split("=", 1) for o in args.output)
+    mapping_file = outputs.get('methods.mapping') or os.path.join(
+        args.output_dir, f'{args.name}.model.out.gz'
+    )
 
-    run_method(args.output_dir, args.name, input_files, extra_arguments)
+    content = concatenate_input_content(input_files)
+    content += f"\n3. Running method using parameters '{parameters}' into {mapping_file}"
+
+    os.makedirs(os.path.dirname(mapping_file) or ".", exist_ok=True)
+    with open(mapping_file, 'w') as file:
+        file.write(content)
 
 
 if __name__ == "__main__":
